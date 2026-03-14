@@ -10,7 +10,7 @@ Autonomous development pipeline that orchestrates research, design, planning, pa
 
 **Install:**
 ```bash
-npx skills add <user>/claude-skills/pipeline
+pspm install <user>/claude-skills/pipeline
 ```
 
 **Usage:** Triggers ambiently on multi-phase tasks, or invoke manually with `/pipeline`.
@@ -44,7 +44,7 @@ Standalone macOS desktop and mobile push notifications for Claude Code. Works wi
 
 **Install:**
 ```bash
-npx skills add <user>/claude-skills/notify
+pspm install <user>/claude-skills/notify
 ```
 
 **Usage:**

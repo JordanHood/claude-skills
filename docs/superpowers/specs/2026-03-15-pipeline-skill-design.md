@@ -430,7 +430,7 @@ A general-purpose notification skill for Claude Code. Not Pipeline-specific -- a
     setup-guide.md            # How to install terminal-notifier, configure ntfy
 ```
 
-**Install:** `npx skills add <repo>/notify` or `pspm install notify`
+**Install:** `pspm install <repo>/notify` or `pspm install notify`
 **Usage:** Workers call `bash <skill-dir>/scripts/notify.sh "Title" "Message" "high" "https://url"`
 **No dependencies.** Works standalone on macOS.
 
@@ -448,7 +448,7 @@ The main pipeline skill. Depends on superpowers, dispatch, and optionally notify
     dispatch-config-example.yaml
 ```
 
-**Install:** `npx skills add <repo>/pipeline` or `pspm install pipeline`
+**Install:** `pspm install <repo>/pipeline` or `pspm install pipeline`
 
 ### PSPM manifest (`pspm.json`)
 
@@ -494,8 +494,8 @@ github.com/<user>/claude-skills
 
 **Install individually:**
 ```
-npx skills add <user>/claude-skills/pipeline
-npx skills add <user>/claude-skills/notify
+pspm install <user>/claude-skills/pipeline
+pspm install <user>/claude-skills/notify
 ```
 
-Both follow the Agent Skills standard. Both installable via PSPM or npx skills add.
+Both follow the Agent Skills standard. Both installable via PSPM or pspm install.
