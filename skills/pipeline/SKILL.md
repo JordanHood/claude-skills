@@ -23,13 +23,13 @@ If either is missing, stop immediately and tell the user: "Pipeline requires [mi
 
 ## Triggering
 
-### Ambient trigger -- fire when ALL apply
+### Ambient trigger -- fire when ANY of these apply
 
 - The task involves multiple distinct phases (e.g. research + implement, design + build)
-- OR spans multiple services or repos
-- OR references roadmaps, HLDs, Outline documents, or Jira projects
-- OR the user used a phrase: "end to end", "full workflow", "go away and do", "build X from scratch"
-- OR estimated scope clearly exceeds a single planning session
+- Spans multiple services or repos
+- References roadmaps, HLDs, Outline documents, or Jira projects
+- The user used a phrase: "end to end", "full workflow", "go away and do", "build X from scratch"
+- Estimated scope clearly exceeds a single planning session
 
 ### Do NOT trigger when
 
@@ -92,6 +92,8 @@ After "go", run autonomously. Notify on background events (see Notification Inte
 ## Phase Building Blocks
 
 Pipeline selects phases dynamically based on task context. Phases marked **always** are included in every run. All others are conditional.
+
+> **Detailed reference:** For worker instruction templates, per-phase dispatch prompts, and implementation details, consult `references/phase-building-blocks.md`.
 
 ### research (conditional)
 - **Tool:** Dispatch `research` alias (Sonnet worker)
@@ -206,8 +208,8 @@ implement -> review -> issues found?
 | Per-chunk review | `review` | Sonnet | Code review, silent failures, OWASP, test coverage |
 | Fix loop | `code` | Opus | Fixing issues found in review |
 | Final architecture review | `deep-review` | Opus | Multi-chunk cross-cutting review |
-
-In-session phases (brainstorm, plan) inherit the current session model. No Dispatch alias needed.
+| Brainstorm / Plan | n/a (in-session) | Inherits session model | Creative design decisions |
+| Outline / Jira / Gate / Finish | n/a (in-session) | Inherits session model | Coordination, not heavy reasoning |
 
 ## Terminal Action Overrides
 
