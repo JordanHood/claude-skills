@@ -1,0 +1,28 @@
+# Dispatch configuration for Pipeline skill
+# Merge these aliases into your existing ~/.dispatch/config.yaml
+#
+# If you don't have Dispatch installed: npx skills add bassimeledath/dispatch -g
+# Then create ~/.dispatch/config.yaml with your backend + these aliases.
+
+# Required aliases for Pipeline
+aliases:
+  code:
+    model: opus
+    prompt: "You are working on implementation. Focus on code quality, tests, and correctness. If the target repo uses a bare clone pattern (.bare/ directory exists), create a worktree for your feature branch before starting work. Install node_modules in the worktree. Follow all CLAUDE.md rules."
+  review:
+    model: sonnet
+    prompt: "You are reviewing code. Focus on correctness, security, and maintainability. Use pr-review-toolkit skills where available."
+  deep-review:
+    model: opus
+    prompt: "You are performing an architectural review across multiple PRs/chunks. Focus on cross-cutting concerns, integration consistency, and overall design coherence."
+  research:
+    model: sonnet
+    prompt: "Focus on research and analysis. Use deep-research skill if the topic warrants multi-step investigation."
+  sweep:
+    model: opus
+    prompt: "You are running the same task across multiple services/repos. Create PARALLEL independent workers, one per service. Each worker gets its own plan file and runs concurrently. After all workers complete, consolidate findings into a single summary report."
+
+# Optional but useful
+  quick:
+    model: haiku
+    prompt: "Fast task. Be concise and efficient."
