@@ -1,0 +1,9 @@
+{
+  "name": "notify",
+  "version": "0.1.0",
+  "description": "macOS desktop and mobile push notifications for Claude Code skills and workers",
+  "author": "jordan.hood",
+  "license": "MIT",
+  "agents": ["claude-code"],
+  "keywords": ["notifications", "macos", "ntfy", "terminal-notifier", "alerts"]
+}
