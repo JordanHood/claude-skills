@@ -404,17 +404,24 @@ The review worker outputs a structured report: issues found (with severity), fil
 
 ## Notification Integration
 
-Use the notify skill if it is available in the current session. Call it as:
-```
-bash <notify-skill-dir>/scripts/notify.sh "Pipeline" "<message>" "<priority>" "<url>"
+**Fire notifications using Bash.** Resolve the notify script path by checking known locations, then call it:
+
+```bash
+# Find notify.sh -- check these paths in order
+NOTIFY_SCRIPT=""
+for p in ~/.claude/skills/notify/scripts/notify.sh ~/.agents/skills/notify/scripts/notify.sh; do
+  [ -f "$p" ] && NOTIFY_SCRIPT="$p" && break
+done
+
+# If found, use it. If not, fall back to osascript.
+if [ -n "$NOTIFY_SCRIPT" ]; then
+  bash "$NOTIFY_SCRIPT" "Pipeline" "<message>" "<priority>" "<url>" "<run-id>"
+else
+  osascript -e 'display notification "<message>" with title "Pipeline" sound name "Glass"'
+fi
 ```
 
-If notify is not available, fall back to inline osascript:
-```
-osascript -e 'display notification "<message>" with title "Pipeline"'
-```
-
-For high-priority events with a URL, also check whether `NTFY_TOPIC` is set and fire an ntfy.sh push if so.
+**IMPORTANT: You MUST actually execute this Bash command at each notification point.** Do not just mention "notifying" in text -- run the Bash tool with the notification command. The user cannot see your text output if they've walked away; the notification is what reaches them.
 
 Use `pipeline-{run-id}` as the notification group ID. Updates replace the previous notification for the same run.
 
