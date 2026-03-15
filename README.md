@@ -63,6 +63,39 @@ bash scripts/notify.sh "Pipeline" "PR #45 ready" "high" "https://github.com/org/
 - `brew install terminal-notifier` -- clickable notifications, grouping, custom sounds
 - ntfy.sh app on phone + `NTFY_TOPIC` env var -- mobile push notifications
 
+### guardrails
+
+Safety hooks for Claude Code that protect against destructive operations when running autonomous workers with `--dangerously-skip-permissions`.
+
+**Install:**
+```bash
+pspm install <user>/claude-skills/guardrails
+```
+
+**Includes example hooks:**
+- `bash-precheck.py` -- blocks destructive git ops, protects sensitive paths, gates commits on protected branches, prevents credential reads
+- `write-boundary.py` -- restricts file writes to project directory, extra restrictions for worker sessions
+
+Copy to `~/.claude/hooks/` and wire into `settings.json`. See the SKILL.md for full setup instructions.
+
+**Dependencies:** None. Python 3 (included with macOS).
+
+---
+
+## Installation via PSPM
+
+All skills can be installed via [PSPM](https://pspm.dev):
+
+```bash
+npm install -g @anytio/pspm
+
+pspm add github:<user>/claude-skills/skills/pipeline
+pspm add github:<user>/claude-skills/skills/notify
+pspm add github:<user>/claude-skills/skills/guardrails
+```
+
+See `references/pspm-guide.md` for full PSPM documentation including publishing, versioning, and monorepo patterns.
+
 ## Dispatch Configuration
 
 Pipeline requires specific Dispatch aliases. See `skills/pipeline/references/dispatch-config-example.yaml` for the required config. Merge into your `~/.dispatch/config.yaml`:
@@ -158,7 +191,7 @@ A full pipeline (research + brainstorm + plan + implement + review + finish) con
 ```
 skills/
   pipeline/
-    SKILL.md                          # Main skill (378 lines)
+    SKILL.md                          # Autonomous pipeline orchestrator
     pspm.json                         # Package manifest
     references/
       phase-building-blocks.md        # Detailed per-phase docs
@@ -172,6 +205,15 @@ skills/
       notify.sh                       # Notification helper script
     references/
       setup-guide.md                  # Installation guide
+  guardrails/
+    SKILL.md                          # Safety hooks documentation
+    pspm.json                         # Package manifest
+    examples/
+      bash-precheck.py                # Pre-tool-use hook for Bash commands
+      write-boundary.py               # Pre-tool-use hook for Edit/Write
+    references/
+references/
+  pspm-guide.md                       # PSPM installation and publishing guide
 docs/
   superpowers/
     specs/                            # Design specifications

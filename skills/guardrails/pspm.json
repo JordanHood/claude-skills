@@ -1,0 +1,9 @@
+{
+  "name": "guardrails",
+  "version": "0.1.0",
+  "description": "Safety hooks for Claude Code - protects against destructive operations, enforces write boundaries, gates sensitive actions. Essential for autonomous workers.",
+  "author": "jordan.hood",
+  "license": "MIT",
+  "agents": ["claude-code"],
+  "keywords": ["safety", "hooks", "guardrails", "security", "permissions", "autonomous"]
+}
