@@ -33,6 +33,8 @@ If either is missing, stop immediately and tell the user: "Pipeline requires [mi
 
 ### Do NOT trigger when
 
+- **You are a dispatched worker.** If you were spawned by Dispatch (running via `claude -p`, or you have a `.dispatch/tasks/` plan file to execute), you are a worker -- NOT an orchestrator. Do your assigned task. Do NOT trigger pipeline. This prevents recursive pipeline-inside-pipeline loops.
+- **You are a subagent.** If you were dispatched as a subagent to execute a specific task, skip this skill entirely.
 - The task is a simple fix, single-file change, or typo correction
 - The task is research-only or a question
 - The user already invoked a specific superpowers skill manually (they're directing the flow)
