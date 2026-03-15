@@ -1,5 +1,5 @@
 {
-  "name": "pipeline",
+  "name": "autonomous",
   "version": "0.1.0",
   "description": "Autonomous development pipeline that chains research, design, planning, parallel implementation, review, and PR creation",
   "author": "jordan.hood",

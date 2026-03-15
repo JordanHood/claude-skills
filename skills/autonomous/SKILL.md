@@ -1,6 +1,6 @@
 ---
-name: pipeline
-description: "Autonomous development pipeline that orchestrates research, design, planning, parallel implementation, review, and PR creation from a single goal. Triggers ambently on multi-phase tasks or via /pipeline. Chains superpowers skills for quality and Dispatch for parallelism. Use when: the task involves multiple phases (research + design + implement), spans multiple services, references roadmaps/HLDs, or the user says 'end to end', 'full workflow', 'go away and do', 'build X from scratch'."
+name: autonomous
+description: "Autonomous development pipeline that orchestrates research, design, planning, parallel implementation, review, and PR creation from a single goal. Triggers ambiently on multi-phase tasks or via /autonomous. Chains superpowers skills for quality and Dispatch for parallelism. Use when: the task involves multiple phases (research + design + implement), spans multiple services, references roadmaps/HLDs, or the user says 'end to end', 'full workflow', 'go away and do', 'build X from scratch'."
 license: MIT
 metadata:
   author: jordan.hood
@@ -40,11 +40,11 @@ If either is missing, stop immediately and tell the user: "Pipeline requires [mi
 - The user already invoked a specific superpowers skill manually (they're directing the flow)
 - The user is guiding the work step-by-step interactively
 
-When in doubt, do not trigger. False negatives are acceptable. False positives (unwanted autonomous work) are not. The manual `/pipeline` command covers gaps.
+When in doubt, do not trigger. False negatives are acceptable. False positives (unwanted autonomous work) are not. The manual `/autonomous` command covers gaps.
 
 ### Manual invocation
 
-`/pipeline` triggers this skill unconditionally regardless of ambient detection.
+`/autonomous` triggers this skill unconditionally regardless of ambient detection.
 
 ## Interaction Pattern
 

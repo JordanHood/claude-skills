@@ -1,224 +1,74 @@
-# Claude Skills
+# Claude Autonomous Skills
 
-A collection of Claude Code skills for autonomous development workflows.
+Three skills that turn Claude Code into an autonomous development system. Give it a goal, say "go", walk away. Come back to draft PRs.
 
-## Skills
+## The skills
 
-### pipeline
+| Skill | What it does | Install |
+|-------|-------------|---------|
+| [**autonomous**](skills/autonomous/) | Orchestrates research, design, planning, parallel implementation, review, and PRs from a single prompt | `npx skills add JordanHood/claude-skills --skill autonomous` |
+| [**notify**](skills/notify/) | Desktop and mobile notifications for worker completion, errors, and review gates | `npx skills add JordanHood/claude-skills --skill notify` |
+| [**guardrails**](skills/guardrails/) | Safety hooks that protect against destructive operations in autonomous workers | `npx skills add JordanHood/claude-skills --skill guardrails` |
 
-Autonomous development pipeline that orchestrates research, design, planning, parallel implementation, review, and PR creation from a single goal prompt.
+## How it looks
 
-**Install:**
-```bash
-pspm install <user>/claude-skills/pipeline
+[Watch the demo (79s)](demo/autonomous-demo.mp4)
+
+```
+> Build a real-time chat app with WebSocket rooms, JWT auth,
+  Redis pub/sub, SQLite, Docker, and CI end to end
+
+Pipeline: Real-Time Chat Application
+
+  1. Research    (Dispatch, Sonnet)  -- best practices
+  2. Brainstorm  (in-session, Opus)  -- architecture + spec review
+  3. Plan        (in-session, Opus)  -- chunked with dependencies
+  4. Implement   (Dispatch, Opus)    -- parallel workers in waves
+  5. Review      (Dispatch, Sonnet)  -- code review, OWASP, test coverage
+  6. Finish      (in-session)        -- draft PRs
+
+  Want me to adjust anything before I start?
+
+> go
+
+  ... 55 minutes later ...
+
+  88 tests | 86% coverage | 12 spec issues caught | 15 code issues fixed
 ```
 
-**Usage:** Triggers ambiently on multi-phase tasks, or invoke manually with `/pipeline`.
+## How it works
 
-```
-"Build custom TypeSpec decorators for JSON Schema conditionals end to end"
+**Superpowers** provides quality -- brainstorming, TDD, spec and code review loops.
+**Dispatch** provides parallelism -- fresh context windows per worker.
+**Autonomous** is the glue -- chains them together so you don't have to sit there manually triggering each phase.
 
-Pipeline proposes:
-  1. Research via Gemini
-  2. Brainstorm decorator design
-  3. Write implementation plan
-  4. Dispatch parallel workers
-  5. Per-chunk code review
-  6. Draft PRs
+Workers discover and use any installed skills at runtime. Install `deep-research` and they use Gemini. Install `fastify-best-practices` and they follow Fastify patterns. No configuration needed.
 
-You tweak the phases, say "go", and walk away.
-```
-
-**Dependencies (required):**
-- [superpowers](https://github.com/obra/superpowers) >= 5.0.0 -- brainstorming, planning, TDD, code review
-- [dispatch](https://github.com/bassimeledath/dispatch) >= 2.0.0 -- parallel worker orchestration
-
-**Dependencies (optional, auto-discovered):**
-- notify (this repo) -- desktop/mobile notifications
-- [deep-research](https://github.com/sanjay3290/ai-skills/tree/main/skills/deep-research) -- Gemini-powered research
-- [pr-review-toolkit](https://github.com/anthropics/plugins) -- code review, silent failure detection, test coverage
-
-### notify
-
-Standalone macOS desktop and mobile push notifications for Claude Code. Works with any skill, worker, or session.
-
-**Install:**
-```bash
-pspm install <user>/claude-skills/notify
-```
-
-**Usage:**
-```bash
-# From any skill or worker
-bash <skill-dir>/scripts/notify.sh "Title" "Message" [priority] [url] [run-id]
-
-# Examples
-bash scripts/notify.sh "Pipeline" "Research complete"
-bash scripts/notify.sh "Pipeline" "PR #45 ready" "high" "https://github.com/org/repo/pull/45"
-```
-
-**Dependencies:** None. Works out of the box on macOS via osascript.
-
-**Optional enhancements:**
-- `brew install terminal-notifier` -- clickable notifications, grouping, custom sounds
-- ntfy.sh app on phone + `NTFY_TOPIC` env var -- mobile push notifications
-
-### guardrails
-
-Safety hooks for Claude Code that protect against destructive operations when running autonomous workers with `--dangerously-skip-permissions`.
-
-**Install:**
-```bash
-pspm install <user>/claude-skills/guardrails
-```
-
-**Includes example hooks:**
-- `bash-precheck.py` -- blocks destructive git ops, protects sensitive paths, gates commits on protected branches, prevents credential reads
-- `write-boundary.py` -- restricts file writes to project directory, extra restrictions for worker sessions
-
-Copy to `~/.claude/hooks/` and wire into `settings.json`. See the SKILL.md for full setup instructions.
-
-**Dependencies:** None. Python 3 (included with macOS).
-
----
-
-## Installation via PSPM
-
-All skills can be installed via [PSPM](https://pspm.dev):
+## Quick start
 
 ```bash
-npm install -g @anytio/pspm
+# Install all three
+npx skills add JordanHood/claude-skills --skill autonomous
+npx skills add JordanHood/claude-skills --skill notify
+npx skills add JordanHood/claude-skills --skill guardrails
 
-pspm add github:<user>/claude-skills/skills/pipeline
-pspm add github:<user>/claude-skills/skills/notify
-pspm add github:<user>/claude-skills/skills/guardrails
+# Set up hooks (copy from guardrails/examples to ~/.claude/hooks/)
+# Configure Dispatch aliases (see skills/autonomous/references/)
+# Add CLAUDE.md routing rule (see skills/autonomous/README.md)
 ```
 
-See `references/pspm-guide.md` for full PSPM documentation including publishing, versioning, and monorepo patterns.
+Each skill's README has detailed setup instructions.
 
-## Dispatch Configuration
+## Dependencies
 
-Pipeline requires specific Dispatch aliases. See `skills/pipeline/references/dispatch-config-example.yaml` for the required config. Merge into your `~/.dispatch/config.yaml`:
+- [superpowers](https://github.com/obra/superpowers) (required)
+- [dispatch](https://github.com/bassimeledath/dispatch) (required)
+- [deep-research](https://github.com/sanjay3290/ai-skills/tree/main/skills/deep-research) (optional)
+- [pr-review-toolkit](https://github.com/anthropics/plugins) (optional)
 
-| Alias | Model | Purpose |
-|---|---|---|
-| `code` | Opus | Implementation workers |
-| `review` | Sonnet | Per-chunk code review |
-| `deep-review` | Opus | Final architecture review |
-| `research` | Sonnet | Research via Gemini |
-| `sweep` | Opus | Multi-repo parallel workers |
+## Status
 
-## CLAUDE.md Setup
-
-Pipeline and Task Observer need CLAUDE.md rules for proper activation. Add to your `~/.claude/CLAUDE.md`:
-
-```markdown
-## Pipeline
-
-- When a task involves multiple phases (research + design + implement), spans multiple
-  services, references roadmaps/HLDs, or uses phrases like "end to end", "full workflow",
-  "go away and do" -- use the pipeline skill INSTEAD of brainstorming directly. Pipeline
-  orchestrates the full flow including brainstorming.
-- For single-phase tasks (just a feature, just a fix), let superpowers brainstorming/planning
-  flow as normal.
-
-## Task Observer
-
-- At the start of any task-oriented session -- any interaction where you will use tools and
-  produce deliverables -- invoke the task-observer skill before beginning work.
-```
-
-### Why CLAUDE.md?
-
-Claude Code skills have no priority mechanism. Without the CLAUDE.md rule, superpowers:brainstorming (which triggers on "any creative work") catches multi-phase tasks before pipeline gets a chance. The CLAUDE.md instruction takes priority over skill triggers, routing correctly.
-
-## Known Quirks
-
-### Ambient trigger vs slash command
-
-Pipeline triggers ambiently via the CLAUDE.md routing rule, but this depends on the phrasing. If it doesn't trigger on a task you think it should, use `/pipeline` as a fallback. The ambient trigger is intentionally conservative -- false negatives are preferable to false positives.
-
-**Phrases that reliably trigger:** "end to end", "full workflow", "go away and do", "build X from scratch", mentioning multiple services.
-
-**Phrases that may NOT trigger:** Short requests, tasks that sound like single features, research-only requests.
-
-### Superpowers terminal action override
-
-Pipeline intercepts superpowers' terminal actions (brainstorming would normally invoke writing-plans, writing-plans would invoke executing-plans). It does this via prompt injection, not code modification. Occasionally the override may not stick if the context window is very full. If brainstorming chains directly to writing-plans instead of returning control to pipeline, restart the pipeline.
-
-### Worker permissions
-
-Dispatched workers are separate Claude Code sessions. They may prompt for Bash permissions that your main session has already approved. Add these to your settings.json allow list to reduce friction:
-
-```json
-"Bash(bash /tmp/worker--*)",
-"Bash(bash /tmp/monitor--*)"
-```
-
-### Worker git commits
-
-Workers commit locally in isolated worktrees during TDD cycles. This requires a CLAUDE.md exception:
-
-```
-Exception: autonomous pipeline/dispatch workers in isolated worktrees may commit
-locally as part of TDD cycles when the pipeline has been approved to run.
-```
-
-Workers never push until the finish phase. Worktrees are disposable.
-
-### State files
-
-Pipeline writes runtime state to `.pipeline/state/<run-id>.yaml` in the project directory. This should be gitignored -- pipeline adds it automatically on first run, but if it doesn't:
-
-```bash
-echo ".pipeline/" >> .gitignore
-```
-
-### Notifications require terminal-notifier for full functionality
-
-Without `terminal-notifier`, notifications fall back to `osascript` which lacks clickable URLs and grouping. Install for the best experience:
-
-```bash
-brew install terminal-notifier
-```
-
-### Context window on long pipelines
-
-A full pipeline (research + brainstorm + plan + implement + review + finish) consumes significant context in the orchestrating session. The brainstorm and plan phases run in-session and produce large outputs. If the context fills up, pipeline can resume from the state file -- say "resume pipeline" or "continue" after restarting.
-
-## Project Structure
-
-```
-skills/
-  pipeline/
-    SKILL.md                          # Autonomous pipeline orchestrator
-    pspm.json                         # Package manifest
-    references/
-      phase-building-blocks.md        # Detailed per-phase docs
-      state-management.md             # State file schema and lifecycle
-      notification-setup.md           # Notification configuration
-      dispatch-config-example.yaml    # Required Dispatch aliases
-  notify/
-    SKILL.md                          # Standalone notification skill
-    pspm.json                         # Package manifest
-    scripts/
-      notify.sh                       # Notification helper script
-    references/
-      setup-guide.md                  # Installation guide
-  guardrails/
-    SKILL.md                          # Safety hooks documentation
-    pspm.json                         # Package manifest
-    examples/
-      bash-precheck.py                # Pre-tool-use hook for Bash commands
-      write-boundary.py               # Pre-tool-use hook for Edit/Write
-    references/
-references/
-  pspm-guide.md                       # PSPM installation and publishing guide
-docs/
-  superpowers/
-    specs/                            # Design specifications
-    plans/                            # Implementation plans
-```
+Work in progress. The core flow works and has been tested on multi-chunk projects with parallel dispatch, spec review loops, and code review with auto-fix. Rough edges are being smoothed out.
 
 ## License
 
