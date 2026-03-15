@@ -119,6 +119,35 @@ Pipeline: *updates plan, then continues autonomously through implementation, rev
 
 After "go", run autonomously. Notify on background events (see Notification Integration). Pause at `[review]` tagged phases, gates, unresolvable failures, or questions the session context cannot answer. The user can also say "pause" at any time for ad-hoc review.
 
+### Phase announcements
+
+**Announce every phase transition clearly.** This gives the user visibility into progress:
+
+```
+--- Pipeline Phase 1/6: Research (Dispatch, Sonnet) ---
+--- Pipeline Phase 2/6: Brainstorm (in-session) ---
+--- Pipeline Phase 3/6: Plan (in-session) ---
+--- Pipeline Phase 4/6: Implement Wave 1 - Dispatching 3 parallel workers ---
+--- Pipeline Phase 4/6: Implement Wave 2 - Dispatching 1 worker ---
+--- Pipeline Phase 5/6: Review (Dispatch, Sonnet) ---
+--- Pipeline Phase 6/6: Finish - Creating draft PRs ---
+```
+
+Update the state file at each phase transition. The user should be able to ask "status" at any time and get a clear answer.
+
+### Phase ordering is mandatory
+
+**You MUST complete each phase fully before starting the next. The order is non-negotiable:**
+
+1. Research (if selected)
+2. Brainstorm -> produces spec document
+3. Plan -> produces plan document with chunks
+4. Implement -> reads plan, dispatches workers per chunk
+5. Review -> per-chunk review cycle
+6. Finish -> PRs
+
+**DO NOT write implementation code before a plan document exists.** If you find yourself writing source code without having first produced a file at `docs/superpowers/plans/`, STOP -- you have skipped phases.
+
 ## Phase Building Blocks
 
 Pipeline selects phases dynamically based on task context. Phases marked **always** are included in every run. All others are conditional.
@@ -170,26 +199,73 @@ Pipeline selects phases dynamically based on task context. Phases marked **alway
 - **When selected:** User explicitly requests a pause point, or architect review is needed after outline_push
 
 ### implement (always)
-Execution is fan-out / fan-in based on plan chunk structure.
 
-Read the plan. Identify chunks and their dependency relationships.
+**CRITICAL: You MUST read the plan file before writing any implementation code.** Parse the chunk structure, identify dependencies between chunks, and determine the execution strategy BEFORE touching code.
 
-For each chunk, determine execution mode:
-- Independent tasks within the chunk -> Dispatch parallel Opus workers, each in its own worktree
-- Sequential or dependent tasks -> subagent-driven in current session
-- Single simple task -> subagent in current session
+#### Step 1: Read and analyse the plan
 
-Per worker (dispatched or in-session):
-1. If `.bare/` exists in the repo, create a dedicated worktree. Never work directly on the default branch.
-2. Install `node_modules` (detect package manager from lockfile per CLAUDE.md rules).
-3. Run TDD using superpowers:test-driven-development.
-4. Use superpowers:systematic-debugging if tests fail.
-5. Run superpowers:verification-before-completion before marking the task done.
-6. Use any other relevant skills discovered at session start (fastify, node, security-guidance, etc.).
+Read the plan at `docs/superpowers/plans/*.md`. Extract:
+- Number of chunks
+- Dependencies between chunks (which chunks depend on which)
+- Number of tasks per chunk
+- Complexity assessment per chunk (file count, integration concerns, test requirements)
 
-Fan-in: wait for all workers in a chunk to complete before starting the next chunk that depends on it.
+#### Step 2: Determine execution strategy per chunk
 
-After each chunk completes, run the review cycle (see Per-Chunk Review Cycle). Then proceed to the next chunk or finish.
+**If the plan has multiple independent chunks:** ALWAYS use Dispatch for parallel execution. This is non-negotiable. Do not implement multiple independent chunks in-session sequentially.
+
+**Every chunk goes to Dispatch. No exceptions.** Even lightweight chunks benefit from fresh context windows. The dispatched worker decides internally whether to use subagent-driven-development for complex sub-tasks within the chunk.
+
+- Single chunk plan -> Dispatch one `code` worker
+- Multiple independent chunks -> Dispatch parallel `code` workers
+- Multiple dependent chunks -> Dispatch in waves (see Step 3)
+
+#### Step 3: Execute in waves
+
+Group chunks into waves based on dependencies:
+
+```
+Wave 1: All chunks with no dependencies -> dispatch in parallel
+  [wait for all Wave 1 workers to complete]
+Wave 2: Chunks that depend on Wave 1 -> dispatch in parallel
+  [wait for all Wave 2 workers to complete]
+Wave 3: etc.
+```
+
+Example from a plan with 4 chunks:
+```
+Chunk 1 (backend): no deps          -> Wave 1 (dispatch or in-session based on size)
+Chunk 2 (frontend): depends on 1    -> Wave 2 }
+Chunk 3 (docker): depends on 1      -> Wave 2 } dispatch in parallel
+Chunk 4 (CI): depends on 1, 3       -> Wave 3 (dispatch after Wave 2)
+```
+
+Announce each wave:
+```
+--- Pipeline: Implement Wave 1 ---
+Dispatching Chunk 1 (backend) via Dispatch code worker...
+
+--- Pipeline: Implement Wave 2 ---
+Chunk 1 complete. Dispatching Chunks 2 (frontend) and 3 (docker) in parallel...
+
+--- Pipeline: Implement Wave 3 ---
+Chunks 2, 3 complete. Dispatching Chunk 4 (CI)...
+```
+
+#### Step 4: Worker instructions
+
+Each dispatched worker receives:
+1. The full text of its chunk from the plan (not a file reference -- provide the task list directly)
+2. The spec document path for reference
+3. Instructions to use TDD (superpowers:test-driven-development)
+4. Instructions to use systematic-debugging if tests fail
+5. Instructions to run verification-before-completion before marking done
+6. "Use any available skills where relevant" (skill discovery)
+7. Follow any worktree or branching patterns defined in the project's CLAUDE.md
+
+#### Step 5: After each chunk
+
+After each chunk completes (whether dispatched or in-session), run the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
 
 For goals spanning multiple repositories, the plan produces one chunk per repository. Each Dispatch worker operates in that repository's worktree. PRs are created per repo.
 
@@ -218,6 +294,9 @@ implement -> review -> issues found?
 ```
 
 ### finish (always)
+
+**PREREQUISITE: All chunks must have passed review before finish can run.** If any chunk has unresolved review issues, the pipeline must not proceed to finish. Check the state file for review statuses.
+
 - **Tool:** superpowers:finishing-a-development-branch
 - **PR strategy:** Proposed in the announcement step. Default: one PR per chunk for multi-chunk work, single PR for small features. User adjusts at announcement.
 - **Behaviour:** Creates draft PRs. Notifies with PR URLs (high priority).
@@ -301,7 +380,7 @@ Read the plan document to identify chunks and dependency edges.
 Each dispatched worker receives:
 1. The task description from the plan
 2. The path to the spec and plan documents
-3. The path to the worktree it should operate in (or instructions to create one)
+3. The working directory and any branching instructions from the project's CLAUDE.md
 4. The terminal action override instruction
 5. "Use available skills where relevant."
 
@@ -410,7 +489,7 @@ Hard dependencies that must be present: **superpowers** and **dispatch**. All ot
 
 CLAUDE.md states workers should not commit unless explicitly asked. Pipeline workers are an intentional exception:
 
-Workers may commit locally during TDD cycles in their isolated worktrees. This exception is safe because:
+Workers may commit locally during TDD cycles on their feature branches. This exception is safe because:
 1. The user authorised autonomous execution by saying "go"
 2. Commits are local only -- workers never push until the finish phase
 3. The finish phase creates draft PRs that the user reviews before merging
@@ -442,6 +521,6 @@ Record the failure details (phase, error, timestamp) in the state file's `comple
 - **All other skills are optional.** Discover and use them, but degrade gracefully if absent.
 - **Pipeline never replaces superpowers.** It invokes superpowers skills and intercepts their terminal actions, but their internal quality loops run in full.
 - **Pipeline never replaces Dispatch.** Dispatch is the execution layer for all parallel and background work. Pipeline is the orchestrator above it.
-- **Worktrees:** Detect `.bare/` and create worktrees per worker. Use `git` inside worktrees, `gw` at repo root. Never commit on the wrong branch.
+- **Branching:** Workers should follow the project's CLAUDE.md for branching and worktree patterns. Create feature branches for implementation work.
 - **Tests always run.** Workers cannot claim completion without passing tests. verification-before-completion is non-negotiable.
 - **No push until finish.** Workers commit locally only. Push and PR creation are finish-phase actions.
