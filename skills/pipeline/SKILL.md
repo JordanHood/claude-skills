@@ -52,8 +52,25 @@ When in doubt, do not trigger. False negatives are acceptable. False positives (
 2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text.
 3. Present a summary of the proposed phases with a one-line description of each.
 4. Ask: "Full proposal written to `.pipeline/proposals/<run-id>.md`. Want me to adjust anything before I start?"
-4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate.
+4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate, add `[review]` tags.
 5. Once the user confirms, begin autonomous execution.
+
+### Review tags
+
+Users can add `[review]` to any phase in the proposal. A `[review]` phase pauses after completing, sends a high-priority notification with the output path, and waits for the user to say "continue" before the pipeline proceeds.
+
+**Adding review tags:** During the tweak step, the user says "add review after brainstorm and plan" or "I want to review the spec before implementation." Pipeline adds `[review]` to those phases.
+
+**Behaviour:** When a `[review]` phase completes:
+1. Pipeline writes the phase output (spec, plan, etc.)
+2. Sends notification: "Phase complete -- awaiting review. Output: `<path>`"
+3. Updates state file: `active_phase.status: waiting_for_user`
+4. Waits for user to say "continue", "looks good", or "carry on"
+5. User can also request changes: "update the spec to include X" -- pipeline makes the change, then waits again
+
+**Ad-hoc pausing:** Even without `[review]` tags, the user can say "pause" or "let me review that" at any time during execution. Pipeline pauses at the next safe point (after the current phase completes) and waits.
+
+**No review tags = fully autonomous.** Phases without `[review]` run without pausing.
 
 ### Example interaction
 
@@ -70,12 +87,12 @@ Pipeline: "Here's what I'm going to do:
 
   Want me to adjust anything before I start?"
 
-User: "Also break the plan into Jira stories under TSPEC-123"
+User: "Also break the plan into Jira stories under TSPEC-123, and let me review the spec and plan before implementation"
 
 Pipeline: "Updated:
   1. Research JSON Schema conditionals
-  2. Brainstorm decorator design
-  3. Write implementation plan
+  2. Brainstorm decorator design [review]
+  3. Write implementation plan [review]
   4. Break plan into Jira stories under TSPEC-123
   5. Dispatch parallel workers per plan chunk
   6. Per-chunk reviews
@@ -85,10 +102,22 @@ Pipeline: "Updated:
 
 User: "Go"
 
-Pipeline: *runs autonomously*
+Pipeline: *runs research autonomously, then brainstorm...*
+
+Pipeline: "Brainstorm complete -- spec written to docs/superpowers/specs/2026-03-15-json-schema-decorators-design.md. Awaiting your review."
+
+User: "Looks good, carry on"
+
+Pipeline: *runs plan phase...*
+
+Pipeline: "Plan complete -- docs/superpowers/plans/2026-03-15-json-schema-decorators.md. Awaiting your review."
+
+User: "Add a chunk for TypeBox format registry too"
+
+Pipeline: *updates plan, then continues autonomously through implementation, review, PRs*
 ```
 
-After "go", run autonomously. Notify on background events (see Notification Integration). Only pause for gates, unresolvable failures, or questions the session context cannot answer.
+After "go", run autonomously. Notify on background events (see Notification Integration). Pause at `[review]` tagged phases, gates, unresolvable failures, or questions the session context cannot answer. The user can also say "pause" at any time for ad-hoc review.
 
 ## Phase Building Blocks
 
