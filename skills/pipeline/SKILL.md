@@ -216,7 +216,15 @@ Read the plan at `docs/superpowers/plans/*.md`. Extract:
 
 **If the plan has multiple independent chunks:** ALWAYS use Dispatch for parallel execution. This is non-negotiable. Do not implement multiple independent chunks in-session sequentially.
 
-**Every chunk goes to Dispatch. No exceptions.** Even lightweight chunks benefit from fresh context windows. The dispatched worker decides internally whether to use subagent-driven-development for complex sub-tasks within the chunk.
+**Every chunk goes to Dispatch. No exceptions.** Even lightweight chunks benefit from fresh context windows. Each dispatched worker gets a completely isolated Claude Code session with no shared context pollution.
+
+**HOW TO DISPATCH: Invoke the Dispatch skill via the Skill tool.** Do NOT use the Agent tool with run_in_background -- that shares the session context. Dispatch spawns fresh `claude -p` headless sessions with their own context windows. This is the whole point.
+
+```
+Skill("dispatch") with args: "code worker for Chunk N: <chunk description>"
+```
+
+For parallel chunks, invoke Dispatch once with instructions to spawn multiple workers.
 
 - Single chunk plan -> Dispatch one `code` worker
 - Multiple independent chunks -> Dispatch parallel `code` workers
