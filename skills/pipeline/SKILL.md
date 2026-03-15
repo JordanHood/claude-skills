@@ -49,8 +49,9 @@ When in doubt, do not trigger. False negatives are acceptable. False positives (
 **Announce and wait.** Never start work silently. Present the proposed phases, let the user adjust, then wait for "go".
 
 1. Analyse the goal. Determine which phases are needed (see Phase Building Blocks).
-2. Present a numbered list of phases with a one-line description of each.
-3. Ask: "Want me to adjust anything before I start?"
+2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text.
+3. Present a summary of the proposed phases with a one-line description of each.
+4. Ask: "Full proposal written to `.pipeline/proposals/<run-id>.md`. Want me to adjust anything before I start?"
 4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate.
 5. Once the user confirms, begin autonomous execution.
 
