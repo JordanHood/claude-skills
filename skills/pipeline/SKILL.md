@@ -267,7 +267,14 @@ Each dispatched worker receives:
 
 #### Step 5: After each chunk
 
-After each chunk completes (whether dispatched or in-session), run the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
+When a dispatched worker completes, **fire a notification immediately:**
+
+```bash
+NOTIFY_SCRIPT=""; for p in ~/.claude/skills/notify/scripts/notify.sh ~/.agents/skills/notify/scripts/notify.sh; do [ -f "$p" ] && NOTIFY_SCRIPT="$p" && break; done
+if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline" "Chunk N complete -- X tests passing" "default" "" "<run-id>"; else osascript -e 'display notification "Chunk N complete" with title "Pipeline"'; fi
+```
+
+Then run the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
 
 For goals spanning multiple repositories, the plan produces one chunk per repository. Each Dispatch worker operates in that repository's worktree. PRs are created per repo.
 
@@ -301,7 +308,13 @@ implement -> review -> issues found?
 
 - **Tool:** superpowers:finishing-a-development-branch
 - **PR strategy:** Proposed in the announcement step. Default: one PR per chunk for multi-chunk work, single PR for small features. User adjusts at announcement.
-- **Behaviour:** Creates draft PRs. Notifies with PR URLs (high priority).
+- **Behaviour:** Creates draft PRs. Then **fire a completion notification via Bash:**
+
+```bash
+NOTIFY_SCRIPT=""; for p in ~/.claude/skills/notify/scripts/notify.sh ~/.agents/skills/notify/scripts/notify.sh; do [ -f "$p" ] && NOTIFY_SCRIPT="$p" && break; done
+if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline Complete" "All done. PRs ready for review." "high" "" "<run-id>"; else osascript -e 'display notification "Pipeline complete - PRs ready" with title "Pipeline" sound name "Glass"'; fi
+```
+
 - If receiving-code-review skill is available, note in the session that subsequent PR feedback should use it.
 
 ### final_review (conditional)
