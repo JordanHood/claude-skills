@@ -231,15 +231,50 @@ implement -> review -> issues found?
 
 ## Model Routing
 
-| Phase | Dispatch alias | Model | When to use |
+### Default model routing
+
+| Phase | Dispatch alias | Default model | When to use |
 |---|---|---|---|
 | Research | `research` | Sonnet | Unfamiliar tech, standards, external APIs |
 | Implementation | `code` | Opus | Code generation, TDD |
 | Per-chunk review | `review` | Sonnet | Code review, silent failures, OWASP, test coverage |
 | Fix loop | `code` | Opus | Fixing issues found in review |
-| Final architecture review | `deep-review` | Opus | Multi-chunk cross-cutting review |
+| Final architecture review | `review` | Sonnet | Multi-chunk cross-cutting review |
 | Brainstorm / Plan | n/a (in-session) | Inherits session model | Creative design decisions |
 | Outline / Jira / Gate / Finish | n/a (in-session) | Inherits session model | Coordination, not heavy reasoning |
+
+### Per-phase model overrides
+
+Users can override the model for any phase during the announcement step. The override applies only to that pipeline run.
+
+**How to override:** During the tweak step, the user says "use opus for final review" or "run research with haiku" or "implementation via sonnet". Pipeline maps the request to the appropriate Dispatch alias or creates a one-off alias for that run.
+
+**Example:**
+```
+Pipeline: "Here's what I'm going to do:
+  1. Research (Sonnet)
+  2. Brainstorm
+  3. Plan
+  4. Implement (Opus)
+  5. Review (Sonnet)
+  6. Final review (Sonnet)
+
+  Want me to adjust?"
+
+User: "Use opus for final review, and run research with haiku"
+
+Pipeline: "Updated:
+  1. Research (Haiku)
+  2. Brainstorm
+  3. Plan
+  4. Implement (Opus)
+  5. Review (Sonnet)
+  6. Final review (Opus)
+
+  Going?"
+```
+
+**Without overrides:** The defaults above are used. They're optimised for cost -- Opus only where complex reasoning is needed (implementation, fix loop), Sonnet everywhere else.
 
 ## Terminal Action Overrides
 

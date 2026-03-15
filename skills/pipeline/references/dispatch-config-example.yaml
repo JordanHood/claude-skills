@@ -13,7 +13,7 @@ aliases:
     model: sonnet
     prompt: "You are reviewing code. Focus on correctness, security, and maintainability. Use pr-review-toolkit skills where available."
   deep-review:
-    model: opus
+    model: sonnet
     prompt: "You are performing an architectural review across multiple PRs/chunks. Focus on cross-cutting concerns, integration consistency, and overall design coherence."
   research:
     model: sonnet
