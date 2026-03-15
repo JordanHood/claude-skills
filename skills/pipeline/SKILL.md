@@ -302,8 +302,10 @@ On the first pipeline run in a project, append `.pipeline/` to `.gitignore` if i
 ```yaml
 run_id: "<kebab-case-goal-date>"
 goal: "<user's original goal>"
+status: proposed | in_progress | completed | failed | abandoned
 started: "<ISO 8601>"
-current_phase: "<phase name>"
+proposal_path: ".pipeline/proposals/<run-id>.md"
+current_phase: "<phase name or empty if proposed>"
 proposed_phases: [<list of phase names>]
 completed_phases:
   <phase_name>:

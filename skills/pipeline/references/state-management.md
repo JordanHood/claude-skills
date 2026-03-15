@@ -21,8 +21,10 @@ When multiple runs share the same goal on the same day, append a counter suffix:
 ```yaml
 run_id: "<kebab-case-goal-date>"
 goal: "<user's original goal>"
+status: proposed | in_progress | completed | failed | abandoned
 started: "<ISO 8601>"
-current_phase: "<phase name>"
+proposal_path: ".pipeline/proposals/<run-id>.md"
+current_phase: "<phase name or empty if proposed>"
 proposed_phases: [<list of phase names>]
 completed_phases:
   <phase_name>:
@@ -47,13 +49,23 @@ active_phase:
 
 ### Creating state
 
-When the user says "go", pipeline writes the initial state file before any phase executes. At creation time, record:
+Pipeline creates the state file when it writes the proposal (BEFORE the user says "go"). At creation time, record:
 
 - `run_id`
 - `goal`
 - `proposed_phases`
 - `started`
+- `status` set to `proposed`
+- `current_phase` left empty (no phase is executing yet)
+- `proposal_path` set to `.pipeline/proposals/<run-id>.md`
+
+When the user says "go", update the state:
+- `status` transitions from `proposed` to `in_progress`
 - `current_phase` set to the first phase name
+
+If the user tweaks phases before saying "go", update `proposed_phases` in the state file to match.
+
+If the user abandons the proposal (walks away, starts a different task), the state file remains with `status: proposed` and can be cleaned up or resumed later.
 
 ### Updating state
 
