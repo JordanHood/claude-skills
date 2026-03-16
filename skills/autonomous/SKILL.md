@@ -10,7 +10,9 @@ user_invocable: true
 
 # Pipeline Skill
 
-You are the pipeline orchestrator. Your job is to take a single goal and drive it autonomously through the full development lifecycle: research, design, planning, parallel implementation, review, and PR creation. You use superpowers for quality and Dispatch for parallelism. You discover everything else at runtime.
+You are the pipeline orchestrator. Your job is to take a single goal and drive it autonomously through the full development lifecycle: research, design, planning, parallel implementation, review, and PR creation. You use superpowers skills for quality and the Dispatch skill for ALL execution outside this session. You discover everything else at runtime.
+
+**The orchestrator session coordinates. It does NOT implement or review code.** Only brainstorming, planning, and coordination (Outline, Jira, gates, finish) run in-session. Everything else -- research, implementation, review, fix loops, final review -- MUST be dispatched via `Skill("dispatch")`. Never use the Agent tool.
 
 ## Hard Dependencies
 
@@ -157,7 +159,7 @@ Pipeline selects phases dynamically based on task context. Phases marked **alway
 > **Detailed reference:** For worker instruction templates, per-phase dispatch prompts, and implementation details, consult `references/phase-building-blocks.md`.
 
 ### research (conditional)
-- **Tool:** Dispatch `research` alias (Sonnet worker)
+- **Tool:** `Skill("dispatch")` to spawn a `research` worker (Sonnet). Do NOT research in-session.
 - **Worker uses at runtime:** deep-research (Gemini), Context7 (library docs), episodic-memory (past decisions), database MCP tools (data inspection)
 - **Inputs:** Goal description, any known external APIs or standards to investigate
 - **Output:** `docs/research/<topic>.md`
@@ -244,7 +246,7 @@ Wave 3: etc.
 
 Example from a plan with 4 chunks:
 ```
-Chunk 1 (backend): no deps          -> Wave 1 (dispatch or in-session based on size)
+Chunk 1 (backend): no deps          -> Wave 1 (dispatch)
 Chunk 2 (frontend): depends on 1    -> Wave 2 }
 Chunk 3 (docker): depends on 1      -> Wave 2 } dispatch in parallel
 Chunk 4 (CI): depends on 1, 3       -> Wave 3 (dispatch after Wave 2)
@@ -282,12 +284,15 @@ NOTIFY_SCRIPT=""; for p in ~/.claude/skills/notify/scripts/notify.sh ~/.agents/s
 if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline" "Chunk N complete -- X tests passing" "default" "" "<run-id>"; else osascript -e 'display notification "Chunk N complete" with title "Pipeline"'; fi
 ```
 
-Then run the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
+Then dispatch a review worker via `Skill("dispatch")` for the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
 
 For goals spanning multiple repositories, the plan produces one chunk per repository. Each Dispatch worker operates in that repository's worktree. PRs are created per repo.
 
 ### review (always, per-chunk)
-After each chunk completes implementation, dispatch a fresh Dispatch `review` worker (Sonnet -- no implementation bias, fast pattern matching). The worker runs:
+
+**Reviews MUST be dispatched via the Dispatch skill, not run in-session.** Do NOT invoke pr-review-toolkit skills or Agent tool reviewers directly in the orchestrator session. The whole point is a fresh context window free of implementation bias -- the reviewer sees only the code, not the decisions that led to it.
+
+After each chunk completes implementation, invoke `Skill("dispatch")` to spawn a `review` worker (Sonnet). The worker runs:
 
 - pr-review-toolkit:code-reviewer -- code quality, correctness, maintainability
 - pr-review-toolkit:silent-failure-hunter -- suppressed errors, bad fallbacks
@@ -298,15 +303,15 @@ Also use any review skills discovered at runtime where relevant (type-design-ana
 
 ### fix_loop (conditional, triggered by review)
 - **Trigger:** Review worker returns issues
-- **Behaviour:** Dispatch a `code` (Opus) fix worker with the review report as input. On completion, re-dispatch a `review` worker. Loop.
+- **Behaviour:** Invoke `Skill("dispatch")` to spawn a `code` (Opus) fix worker with the review report as input. On completion, invoke `Skill("dispatch")` again to spawn a fresh `review` worker. Loop. Do NOT fix or re-review in-session.
 - **Max retries:** 3
 - **On exhaustion:** Pause pipeline. Send high-priority notification with the review report. Wait for user decision.
 
 Flow:
 ```
-implement -> review -> issues found?
+implement -> dispatch review worker -> issues found?
   no  -> continue to next chunk or finish
-  yes -> dispatch fix worker -> re-review -> loop (max 3)
+  yes -> dispatch fix worker -> dispatch re-review worker -> loop (max 3)
         -> still failing after 3 -> notify user, pause
 ```
 
@@ -326,24 +331,28 @@ if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline Complete" "All 
 - If receiving-code-review skill is available, note in the session that subsequent PR feedback should use it.
 
 ### final_review (conditional)
-- **Tool:** Dispatch `deep-review` alias (Opus -- cross-chunk reasoning)
+- **Tool:** `Skill("dispatch")` to spawn a `review` worker (Opus for cross-chunk reasoning)
 - **Inputs:** All PRs and chunk outputs
-- **Behaviour:** Cold architecture review across all PRs and chunks. Checks cross-chunk consistency, integration concerns, overall design coherence.
+- **Behaviour:** Cold architecture review across all PRs and chunks. Checks cross-chunk consistency, integration concerns, overall design coherence. Do NOT run this in-session -- it must be a dispatched worker with a fresh context window.
 - **When selected:** Automatically included for multi-chunk work. Skipped for single-chunk work. User can add or remove at announcement.
 
 ## Model Routing
 
 ### Default model routing
 
-| Phase | Dispatch alias | Default model | When to use |
+| Phase | Execution | Dispatch alias | Default model |
 |---|---|---|---|
-| Research | `research` | Sonnet | Unfamiliar tech, standards, external APIs |
-| Implementation | `code` | Opus | Code generation, TDD |
-| Per-chunk review | `review` | Sonnet | Code review, silent failures, OWASP, test coverage |
-| Fix loop | `code` | Opus | Fixing issues found in review |
-| Final architecture review | `review` | Sonnet | Multi-chunk cross-cutting review |
-| Brainstorm / Plan | n/a (in-session) | Inherits session model | Creative design decisions |
-| Outline / Jira / Gate / Finish | n/a (in-session) | Inherits session model | Coordination, not heavy reasoning |
+| Research | **Dispatched** | `research` | Sonnet |
+| Brainstorm | In-session | n/a | Inherits session model |
+| Plan | In-session | n/a | Inherits session model |
+| Outline / Jira / Gate | In-session | n/a | Inherits session model |
+| Implementation | **Dispatched** | `code` | Opus |
+| Per-chunk review | **Dispatched** | `review` | Sonnet |
+| Fix loop | **Dispatched** | `code` | Opus |
+| Final architecture review | **Dispatched** | `review` | Opus |
+| Finish | In-session | n/a | Inherits session model |
+
+Only brainstorm, plan, coordination (Outline/Jira/Gate), and finish run in-session. Every other phase is dispatched via `Skill("dispatch")`.
 
 ### Per-phase model overrides
 
@@ -396,7 +405,7 @@ The full internal quality loops of each skill run as normal. Only the terminal a
 
 Read the plan document to identify chunks and dependency edges.
 
-**Fan-out:** For each chunk whose dependencies are satisfied, dispatch workers or run subagents. Independent tasks within a chunk dispatch in parallel.
+**Fan-out:** For each chunk whose dependencies are satisfied, invoke `Skill("dispatch")` to spawn workers. Independent chunks dispatch in parallel.
 
 **Fan-in:** Before starting a chunk that depends on another, wait for all workers in the dependency chunk to reach `completed` status in the state file.
 
@@ -411,9 +420,9 @@ Workers commit locally during TDD cycles (see Worker Git Commits). They do not p
 
 ## Per-Chunk Review Cycle
 
-After each chunk's implementation tasks complete, dispatch a fresh `review` worker. A fresh context window prevents implementation bias -- the reviewer sees only the code, not the decisions that led to it.
+**IMPORTANT: Reviews are ALWAYS dispatched via `Skill("dispatch")`, never run in the orchestrator session.** Do not run review skills in-session, do not use the Agent tool for reviews. A fresh Dispatch worker gets an isolated context window -- it sees only the diff, not the implementation reasoning that led to it. This isolation is what makes the review valuable.
 
-The review worker runs these skills in order:
+Invoke `Skill("dispatch")` to spawn a `review` worker for each completed chunk. The worker runs these skills in order:
 1. pr-review-toolkit:code-reviewer
 2. pr-review-toolkit:silent-failure-hunter
 3. pr-review-toolkit:pr-test-analyzer
@@ -492,7 +501,7 @@ active_phase:
   execution:
     <chunk_name>:
       tasks: ["<task-id>", ...]
-      mode: dispatch_parallel | subagent
+      mode: dispatch_parallel | dispatch_sequential
       depends_on: <chunk_name> | null
       status: pending | running | completed | failed
       workers:
@@ -546,11 +555,31 @@ Record the failure details (phase, error, timestamp) in the state file's `comple
 
 ## Constraints
 
+### Dispatch vs in-session decision (non-negotiable)
+
+| "Should I do this myself or dispatch it?" | Answer |
+|---|---|
+| Research | **Dispatch.** Always. |
+| Brainstorm (superpowers:brainstorming) | In-session. |
+| Plan (superpowers:writing-plans) | In-session. |
+| Outline pull/push, Jira breakdown, gates | In-session. |
+| Implementation (any chunk, any size) | **Dispatch.** Always. |
+| Review (any review skill) | **Dispatch.** Always. |
+| Fix loop (code fix after review) | **Dispatch.** Always. |
+| Final architecture review | **Dispatch.** Always. |
+| Finish (PR creation) | In-session. |
+
+**If it writes code or reviews code, it MUST be dispatched.** No exceptions. No "just this small one." No "I'll do it quickly in-session." Dispatch every time via `Skill("dispatch")`.
+
+**The Agent tool is BANNED in this skill.** Do not use `Agent(...)` with any subagent_type, with or without run_in_background, for any purpose. Agent tool spawns subagents that share the orchestrator's context window. Dispatch spawns fresh `claude -p` sessions with completely isolated context. The isolation is the point.
+
+### Other constraints
+
 - **CLAUDE.md always takes precedence** over any pipeline behaviour. Code style, git rules, package manager rules, no eslint-disable, full function declarations -- all apply to every worker and every in-session action.
 - **Two hard dependencies:** superpowers and dispatch. Pipeline errors clearly if either is missing.
 - **All other skills are optional.** Discover and use them, but degrade gracefully if absent.
 - **Pipeline never replaces superpowers.** It invokes superpowers skills and intercepts their terminal actions, but their internal quality loops run in full.
-- **Pipeline never replaces Dispatch.** Dispatch is the execution layer for all parallel and background work. Pipeline is the orchestrator above it.
+- **Pipeline never replaces Dispatch.** Dispatch is the execution layer for all work outside this session. Pipeline is the orchestrator above it.
 - **Branching:** Workers should follow the project's CLAUDE.md for branching and worktree patterns. Create feature branches for implementation work.
 - **Tests always run.** Workers cannot claim completion without passing tests. verification-before-completion is non-negotiable.
 - **No push until finish.** Workers commit locally only. Push and PR creation are finish-phase actions.
