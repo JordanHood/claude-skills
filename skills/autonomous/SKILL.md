@@ -53,10 +53,10 @@ When in doubt, do not trigger. False negatives are acceptable. False positives (
 **Announce and wait.** Never start work silently. Present the proposed phases, let the user adjust, then wait for "go".
 
 1. Analyse the goal. Determine which phases are needed (see Phase Building Blocks).
-2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text.
+2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text. Also initialise the state file at `.pipeline/state/<run-id>.yaml` with `status: proposed` and a populated `review_suite` block (model, skills list, trigger mode, max retries). The review suite is locked at proposal time so it's inspectable and overridable during the tweak step -- not remembered ad-hoc during execution.
 3. Present a summary of the proposed phases with a one-line description of each.
 4. Ask: "Full proposal written to `.pipeline/proposals/<run-id>.md`. Want me to adjust anything before I start?"
-4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate, add `[review]` tags.
+4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate, add `[review]` tags, adjust the review suite (add/remove skills, change model, switch trigger mode).
 5. Once the user confirms, begin autonomous execution.
 
 ### Review tags
@@ -366,14 +366,9 @@ For goals spanning multiple repositories, the plan produces one chunk per reposi
 
 **Dispatch the review worker for a chunk as soon as that chunk's implementation completes.** Do not wait for other chunks. This is the streaming model -- each chunk gets reviewed independently as it finishes.
 
-Invoke `Skill("dispatch")` to spawn a `review` worker (Sonnet). The worker runs:
+**Read the review suite from the state file.** The `review_suite` block was written at proposal time. Use its `model` for the dispatch alias, its `skills` list for the worker instructions, its `trigger` mode to determine streaming vs batch, and its `max_fix_retries` for the fix loop limit. Do NOT hardcode review skills in the dispatch prompt -- read them from state so user overrides from the tweak step are honoured.
 
-- pr-review-toolkit:code-reviewer -- code quality, correctness, maintainability
-- pr-review-toolkit:silent-failure-hunter -- suppressed errors, bad fallbacks
-- pr-review-toolkit:pr-test-analyzer -- test coverage gaps
-- security-guidance / OWASP patterns -- especially on API, auth, or data-handling code
-
-Also use any review skills discovered at runtime where relevant (type-design-analyzer for new types, comment-analyzer for new docs).
+Invoke `Skill("dispatch")` to spawn a review worker using `review_suite.model`. The worker runs each skill listed in `review_suite.skills`, plus any review skills discovered at runtime where relevant (type-design-analyzer for new types, comment-analyzer for new docs).
 
 ### fix_loop (conditional, triggered by review, per-chunk)
 - **Trigger:** Review worker returns issues for a specific chunk
@@ -412,12 +407,7 @@ if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline Complete" "All 
 ```
 
 - If receiving-code-review skill is available, note in the session that subsequent PR feedback should use it.
-- **Archive dispatch artifacts:** After PRs are created and notifications sent, move the run's dispatch task files to an archive directory:
-  ```bash
-  mkdir -p .dispatch/archive/<run-id>
-  mv .dispatch/tasks/<run-id>-* .dispatch/archive/<run-id>/ 2>/dev/null || true
-  ```
-  This prevents stale `.done` markers and plan files from confusing future runs. The archive is kept for debugging -- the user decides when to clean it up.
+- **Offer cleanup:** After PRs are created and notifications sent, ask the user: "Clean up .dispatch/ and .pipeline/ artifacts from this run?" If yes, remove the run's task directories from `.dispatch/tasks/`, the state file from `.pipeline/state/`, and the proposal from `.pipeline/proposals/`. If no, leave everything for debugging. Do not archive to a subdirectory -- either clean up fully or leave in place.
 
 ### final_review (conditional)
 - **Tool:** `Skill("dispatch")` to spawn a `review` worker (Opus for cross-chunk reasoning)
@@ -592,6 +582,15 @@ gate_check:
   completed_phase: "<last completed phase>"
   entering_phase: "<phase being entered>"
   prerequisite_met: true | false
+review_suite:
+  model: "<dispatch alias, e.g. review (Sonnet)>"
+  skills:
+    - pr-review-toolkit:code-reviewer
+    - pr-review-toolkit:silent-failure-hunter
+    - pr-review-toolkit:pr-test-analyzer
+    - security-guidance
+  trigger: per_chunk | batch
+  max_fix_retries: 3
 active_phase:
   name: "<phase name>"
   status: in_progress | waiting_for_user | failed
