@@ -86,3 +86,14 @@ Workers discover and use any installed skills at runtime. No hardcoded skill lis
 ## State management
 
 Runtime state persists at `.pipeline/state/<run-id>.yaml`. Enables resume after context compaction ("resume pipeline"), status checks, and concurrent pipeline runs.
+
+Completed dispatch artifacts are archived to `.dispatch/archive/<run-id>/` during the finish phase. Clean up archives at your discretion.
+
+### Git exclusions
+
+`.pipeline/` and `.dispatch/` directories are created per-repo at runtime. To keep them out of `git status` globally without per-repo `.gitignore` entries, add them to your global excludes file:
+
+```bash
+echo -e ".pipeline/\n.dispatch/" >> ~/.gitignore_global
+git config --global core.excludesFile ~/.gitignore_global
+```
