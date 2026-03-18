@@ -1,0 +1,12 @@
+{
+  "name": "dispatch-dashboard",
+  "version": "0.1.0",
+  "description": "Live browser dashboard for monitoring dispatch worker progress",
+  "author": "jordan.hood",
+  "license": "MIT",
+  "agents": ["claude-code"],
+  "optionalDependencies": {
+    "dispatch": ">=2.0.0"
+  },
+  "keywords": ["dispatch", "dashboard", "monitoring", "workers", "progress"]
+}
