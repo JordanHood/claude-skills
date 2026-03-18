@@ -142,7 +142,7 @@ def get_html():
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Fira Code', monospace;
     background: #0a0a0f;
-    color: #c8c8d0;
+    color: #d0d0d8;
     padding: 24px;
     min-height: 100vh;
   }
@@ -154,20 +154,39 @@ def get_html():
     padding-bottom: 16px;
     border-bottom: 1px solid #1a1a2e;
   }
-  .header h1 { font-size: 16px; font-weight: 600; color: #e0e0e8; letter-spacing: 0.5px; }
-  .header .meta { font-size: 12px; color: #606078; }
+  .header h1 { font-size: 18px; font-weight: 600; color: #e8e8f0; letter-spacing: 0.5px; }
+  .header .meta { font-size: 13px; color: #707088; }
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #1a1a2e;
+    background: #0f0f18;
+    color: #808098;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #2a2a4e; color: #c0c0d0; }
+  .filter-btn.active { border-color: #3b82f6; color: #60a5fa; background: #0f1525; }
+  .filter-btn .count { margin-left: 6px; font-size: 11px; opacity: 0.6; }
   .aggregate {
     display: flex;
     gap: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     padding: 16px;
     background: #0f0f18;
     border: 1px solid #1a1a2e;
     border-radius: 8px;
   }
   .aggregate .stat { display: flex; flex-direction: column; gap: 4px; }
-  .aggregate .stat-value { font-size: 24px; font-weight: 700; color: #e0e0e8; }
-  .aggregate .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #606078; }
+  .aggregate .stat-value { font-size: 24px; font-weight: 700; color: #e8e8f0; }
+  .aggregate .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #707088; }
   .aggregate .progress-bar-outer { flex: 1; display: flex; align-items: center; min-width: 200px; }
   .aggregate .progress-bar-bg { width: 100%; height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; }
   .aggregate .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 3px; transition: width 0.5s ease; }
@@ -188,9 +207,21 @@ def get_html():
   .card.status-running { border-left: 3px solid #3b82f6; }
   .card.status-blocked { border-left: 3px solid #f59e0b; }
   .card.status-error { border-left: 3px solid #ef4444; }
-  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .card-title { font-size: 14px; font-weight: 600; color: #e0e0e8; }
-  .card-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card.collapsed .checklist,
+  .card.collapsed .card-progress,
+  .card.collapsed .ipc-alert { display: none; }
+  .card.collapsed .card-footer { margin-top: 0; padding-top: 0; border-top: none; }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .card.collapsed .card-header { margin-bottom: 6px; }
+  .card-title { font-size: 15px; font-weight: 600; color: #e8e8f0; }
+  .card-badge { font-size: 11px; padding: 3px 10px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
   .badge-running { background: #1e3a5f; color: #60a5fa; }
   .badge-complete { background: #14532d; color: #4ade80; }
   .badge-blocked { background: #451a03; color: #fbbf24; }
@@ -202,29 +233,31 @@ def get_html():
   .fill-complete { background: #22c55e; }
   .fill-blocked { background: #f59e0b; }
   .fill-error { background: #ef4444; }
-  .card-progress-text { font-size: 12px; color: #808098; min-width: 36px; text-align: right; }
-  .checklist { list-style: none; font-size: 12px; line-height: 1.8; }
-  .checklist li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .check-icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
+  .card-progress-text { font-size: 13px; color: #909098; min-width: 36px; text-align: right; }
+  .checklist { list-style: none; font-size: 13px; line-height: 2; }
+  .checklist li { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; }
+  .check-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; margin-top: 4px; }
   .check-done { color: #22c55e; }
   .check-current { color: #3b82f6; }
-  .check-pending { color: #2a2a4e; }
+  .check-pending { color: #50506a; }
   .check-blocked { color: #f59e0b; }
   .check-error { color: #ef4444; }
-  .item-done { color: #606078; text-decoration: line-through; }
-  .item-current { color: #e0e0e8; font-weight: 500; }
-  .item-pending { color: #4a4a60; }
+  .item-text { flex: 1; }
+  .item-done { color: #707088; text-decoration: line-through; }
+  .item-current { color: #f0f0f8; font-weight: 500; }
+  .item-pending { color: #9090a0; }
   .item-blocked { color: #fbbf24; }
   .item-error { color: #f87171; }
-  .card-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a1a2e; font-size: 11px; color: #606078; }
+  .card-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a1a2e; font-size: 12px; color: #707088; }
   .ipc-alert {
     margin-top: 10px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: #1a1503;
     border: 1px solid #3d3200;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 13px;
     color: #fbbf24;
+    line-height: 1.5;
   }
   .ipc-alert strong { color: #fcd34d; }
   .pulse {
@@ -243,16 +276,23 @@ def get_html():
   .empty {
     text-align: center;
     padding: 80px 24px;
-    color: #606078;
-    font-size: 14px;
+    color: #707088;
+    font-size: 15px;
   }
-  .empty-title { color: #808098; font-size: 16px; margin-bottom: 8px; }
+  .empty-title { color: #909098; font-size: 17px; margin-bottom: 8px; }
 </style>
 </head>
 <body>
 <div class="header">
   <h1>dispatch</h1>
   <div class="meta"><span id="worker-count">0</span> workers -- polling every 2s -- <span id="clock"></span></div>
+</div>
+<div class="filters" id="filters">
+  <button class="filter-btn active" data-filter="all">All<span class="count" id="filter-count-all"></span></button>
+  <button class="filter-btn" data-filter="running">Running<span class="count" id="filter-count-running"></span></button>
+  <button class="filter-btn" data-filter="blocked">Blocked<span class="count" id="filter-count-blocked"></span></button>
+  <button class="filter-btn" data-filter="error">Error<span class="count" id="filter-count-error"></span></button>
+  <button class="filter-btn" data-filter="complete">Complete<span class="count" id="filter-count-complete"></span></button>
 </div>
 <div class="aggregate" id="aggregate">
   <div class="stat">
@@ -295,6 +335,10 @@ const ICONS = {
   error: '!'
 };
 
+const STATUS_ORDER = { blocked: 0, error: 1, running: 2, complete: 3 };
+let activeFilter = 'all';
+let latestData = null;
+
 function fmt(secs) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -309,6 +353,7 @@ function esc(s) {
 
 function renderCard(task) {
   const pct = task.total > 0 ? Math.round((task.done / task.total) * 100) : 0;
+  const collapsed = task.status === 'complete';
   const badgeContent = task.status === 'running'
     ? '<span class="pulse"></span>running'
     : task.status;
@@ -316,7 +361,7 @@ function renderCard(task) {
   let items = '';
   for (const it of task.items) {
     items += '<li><span class="check-icon check-' + it.state + '">' + ICONS[it.state] + '</span>'
-      + '<span class="item-' + it.state + '">' + esc(it.text) + '</span></li>';
+      + '<span class="item-text item-' + it.state + '">' + esc(it.text) + '</span></li>';
   }
 
   let ipc = '';
@@ -324,14 +369,14 @@ function renderCard(task) {
     ipc = '<div class="ipc-alert"><strong>Question:</strong> ' + esc(task.ipc_question) + '</div>';
   }
 
-  return '<div class="card status-' + task.status + '" data-id="' + task.id + '">'
-    + '<div class="card-header">'
-    + '<span class="card-title">' + esc(task.id) + '</span>'
+  return '<div class="card status-' + task.status + (collapsed ? ' collapsed' : '') + '" data-id="' + task.id + '" data-status="' + task.status + '">'
+    + '<div class="card-header" onclick="toggleCard(this)">'
+    + '<span class="card-title">' + esc(task.id) + ' <span style="font-weight:400;color:#707088;font-size:13px">' + task.done + '/' + task.total + '</span></span>'
     + '<span class="card-badge badge-' + task.status + '">' + badgeContent + '</span>'
     + '</div>'
     + '<div class="card-progress">'
     + '<div class="card-progress-bar"><div class="card-progress-fill fill-' + task.status + '" style="width:' + pct + '%"></div></div>'
-    + '<span class="card-progress-text">' + task.done + '/' + task.total + '</span>'
+    + '<span class="card-progress-text">' + pct + '%</span>'
     + '</div>'
     + '<ul class="checklist">' + items + '</ul>'
     + ipc
@@ -339,7 +384,43 @@ function renderCard(task) {
     + '</div>';
 }
 
+function toggleCard(header) {
+  header.closest('.card').classList.toggle('collapsed');
+}
+
+function applyFilter() {
+  if (!latestData) return;
+  const grid = document.getElementById('grid');
+  const cards = grid.querySelectorAll('.card');
+  for (const card of cards) {
+    if (activeFilter === 'all' || card.dataset.status === activeFilter) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  }
+}
+
+function updateFilterCounts(data) {
+  const counts = { all: data.tasks.length, running: 0, blocked: 0, complete: 0, error: 0 };
+  for (const t of data.tasks) counts[t.status] = (counts[t.status] || 0) + 1;
+  for (const key of Object.keys(counts)) {
+    const el = document.getElementById('filter-count-' + key);
+    if (el) el.textContent = counts[key] > 0 ? ' ' + counts[key] : '';
+  }
+}
+
+document.getElementById('filters').addEventListener('click', function(e) {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  applyFilter();
+});
+
 function update(data) {
+  latestData = data;
   const agg = data.aggregate;
   document.getElementById('agg-done').textContent = agg.done_items;
   document.getElementById('agg-total').textContent = agg.total_items;
@@ -351,6 +432,8 @@ function update(data) {
 
   const pct = agg.total_items > 0 ? Math.round((agg.done_items / agg.total_items) * 100) : 0;
   document.getElementById('agg-bar').style.width = pct + '%';
+
+  updateFilterCounts(data);
 
   const grid = document.getElementById('grid');
   const empty = document.getElementById('empty');
@@ -364,6 +447,10 @@ function update(data) {
   grid.style.display = 'grid';
   empty.style.display = 'none';
 
+  data.tasks.sort(function(a, b) {
+    return (STATUS_ORDER[a.status] || 99) - (STATUS_ORDER[b.status] || 99);
+  });
+
   const existing = {};
   for (const card of grid.querySelectorAll('.card')) {
     existing[card.dataset.id] = card;
@@ -375,8 +462,13 @@ function update(data) {
     const html = renderCard(task);
     const old = existing[task.id];
     if (old) {
+      const wasCollapsed = old.classList.contains('collapsed');
       if (old.outerHTML !== html) {
         old.outerHTML = html;
+        if (wasCollapsed) {
+          const updated = grid.querySelector('[data-id="' + task.id + '"]');
+          if (updated) updated.classList.add('collapsed');
+        }
       }
     } else {
       grid.insertAdjacentHTML('beforeend', html);
@@ -386,6 +478,8 @@ function update(data) {
   for (const [id, card] of Object.entries(existing)) {
     if (!seen.has(id)) card.remove();
   }
+
+  applyFilter();
 }
 
 function tick() {
