@@ -1,6 +1,6 @@
 # Claude Autonomous Skills
 
-Three skills that turn Claude Code into an autonomous development system. Give it a goal, say "go", walk away. Come back to draft PRs.
+Four skills that turn Claude Code into an autonomous development system. Give it a goal, say "go", walk away. Come back to draft PRs.
 
 ## The skills
 
@@ -9,6 +9,7 @@ Three skills that turn Claude Code into an autonomous development system. Give i
 | [**autonomous**](skills/autonomous/) | Orchestrates research, design, planning, parallel implementation, review, and PRs from a single prompt | `npx skills add JordanHood/claude-skills --skill autonomous` |
 | [**notify**](skills/notify/) | Desktop and mobile notifications for worker completion, errors, and review gates | `npx skills add JordanHood/claude-skills --skill notify` |
 | [**guardrails**](skills/guardrails/) | Safety hooks that protect against destructive operations in autonomous workers | `npx skills add JordanHood/claude-skills --skill guardrails` |
+| [**dispatch-dashboard**](skills/dispatch-dashboard/) | Live browser dashboard for monitoring dispatch worker progress and status | `npx skills add JordanHood/claude-skills --skill dispatch-dashboard` |
 
 ## How it looks
 
@@ -47,10 +48,11 @@ Workers discover and use any installed skills at runtime. Install `deep-research
 ## Quick start
 
 ```bash
-# Install all three
+# Install all four
 npx skills add JordanHood/claude-skills --skill autonomous
 npx skills add JordanHood/claude-skills --skill notify
 npx skills add JordanHood/claude-skills --skill guardrails
+npx skills add JordanHood/claude-skills --skill dispatch-dashboard
 
 # Set up hooks (copy from guardrails/examples to ~/.claude/hooks/)
 # Configure Dispatch aliases (see skills/autonomous/references/)

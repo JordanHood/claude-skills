@@ -53,10 +53,10 @@ When in doubt, do not trigger. False negatives are acceptable. False positives (
 **Announce and wait.** Never start work silently. Present the proposed phases, let the user adjust, then wait for "go".
 
 1. Analyse the goal. Determine which phases are needed (see Phase Building Blocks).
-2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text.
+2. Write the proposed pipeline to `.pipeline/proposals/<run-id>.md` with the goal, phases, per-phase details, and any design decisions or gates identified. This gives the user a reviewable artifact, not just chat text. Also initialise the state file at `.pipeline/state/<run-id>.yaml` with `status: proposed` and a populated `review_suite` block (model, skills list, trigger mode, max retries). The review suite is locked at proposal time so it's inspectable and overridable during the tweak step -- not remembered ad-hoc during execution.
 3. Present a summary of the proposed phases with a one-line description of each.
 4. Ask: "Full proposal written to `.pipeline/proposals/<run-id>.md`. Want me to adjust anything before I start?"
-4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate, add `[review]` tags.
+4. Accept tweaks: add Jira breakdown, remove research, add Outline export, change PR strategy, add a gate, add `[review]` tags, adjust the review suite (add/remove skills, change model, switch trigger mode).
 5. Once the user confirms, begin autonomous execution.
 
 ### Review tags
@@ -151,6 +151,36 @@ Update the state file at each phase transition. The user should be able to ask "
 6. Finish -> PRs
 
 **DO NOT write implementation code before a plan document exists.** If you find yourself writing source code without having first produced a file at `docs/superpowers/plans/`, STOP -- you have skipped phases.
+
+### Phase transition protocol (mandatory)
+
+**Every phase transition MUST follow this procedure. No exceptions.**
+
+This exists because the model has demonstrated a tendency to skip phases when "caught up in momentum" -- e.g., jumping from implement straight to finish after receiving completion notifications, skipping the review phase entirely. Prose rules alone do not prevent this. The procedure below is the enforcement mechanism.
+
+**Before entering ANY phase, execute these steps in order:**
+
+1. **Read the state file.** `cat .pipeline/state/<run-id>.yaml` -- do not rely on memory of what the state file contains. Read it fresh every time.
+
+2. **Identify the next phase.** Look at `proposed_phases` and `completed_phases`. The next phase is the first entry in `proposed_phases` that does NOT appear in `completed_phases`. This is the ONLY phase you may enter.
+
+3. **Verify the current phase is complete.** Check that `active_phase` is empty or that the previous phase appears in `completed_phases` with `status: completed`. If the previous phase is still `in_progress`, you cannot advance.
+
+4. **Write a gate check entry to the state file.** Before doing anything else, update the state file with:
+   ```yaml
+   gate_check:
+     timestamp: "<ISO 8601>"
+     completed_phase: "<name of phase just finished>"
+     entering_phase: "<name of phase about to start>"
+     prerequisite_met: true
+   ```
+   This creates an auditable record that you performed the check. If you cannot honestly write `prerequisite_met: true`, STOP and investigate.
+
+5. **Announce the phase transition.** Only after steps 1-4 are complete, output the phase announcement banner.
+
+**The most dangerous moment is when all workers complete.** Completion notifications create a false sense of "done." When you receive the last worker completion, your next action MUST be step 1 above (read the state file), NOT "now let's push and create PRs."
+
+**Self-check prompt:** Before taking any finish-phase action (push, PR creation), ask yourself: "Have all chunks passed review? Is `review` in `completed_phases`?" If you cannot answer yes with evidence from the state file, STOP.
 
 ## Phase Building Blocks
 
@@ -275,7 +305,7 @@ Each dispatched worker receives:
 6. "Use any available skills where relevant" (skill discovery)
 7. Follow any worktree or branching patterns defined in the project's CLAUDE.md
 
-#### Step 5: After each chunk
+#### Step 5: After each chunk -- streaming per-chunk pipeline
 
 When a dispatched worker completes, **fire a notification immediately:**
 
@@ -284,7 +314,49 @@ NOTIFY_SCRIPT=""; for p in ~/.claude/skills/notify/scripts/notify.sh ~/.agents/s
 if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline" "Chunk N complete -- X tests passing" "default" "" "<run-id>"; else osascript -e 'display notification "Chunk N complete" with title "Pipeline"'; fi
 ```
 
-Then dispatch a review worker via `Skill("dispatch")` for the per-chunk review cycle (see review phase). Do NOT proceed to the next wave or finish until review passes.
+**Then immediately dispatch the next phase for that chunk.** Do NOT wait for all chunks to finish the current phase before starting the next phase per chunk. Each chunk flows through its own pipeline independently:
+
+```
+chunk A: implement -> done -> review -> done -> [ready]
+chunk B: implement -> done -> review -> done -> [ready]
+chunk C: implement -> ................still running................-> done -> review -> done -> [ready]
+                                                                     ^
+                                          chunks A and B are already reviewed by this point
+```
+
+**This is the streaming execution model.** When chunks are independent (no cross-chunk dependencies between phases), each chunk advances through implement -> review -> fix_loop as soon as it completes the previous step. The finish phase is the only synchronisation point -- it gates on ALL chunks reaching `ready` status.
+
+**When to use streaming vs batch:**
+- **Streaming (default for independent chunks):** Each chunk's review dispatches as soon as its implementation completes. Use when chunks are independent repos/services with no shared state between their review phases.
+- **Batch (only when cross-chunk review is needed):** Wait for all chunks to implement before reviewing. Use when a reviewer needs to see all chunks together for consistency (e.g., shared API contract changes). The proposal should specify this explicitly if needed.
+
+**Orchestrator polling loop:** While chunks are in flight across different phases, the orchestrator monitors all active workers. On each completion event:
+1. Read the state file
+2. Identify which chunk just completed which phase
+3. Update the chunk's status in the state file
+4. If the chunk has a next phase (e.g., implement done -> review), dispatch the next worker for that chunk immediately
+5. If ALL chunks have reached `ready` (review passed), proceed to finish via the gate check protocol
+6. If a chunk's review finds issues, enter fix_loop for that chunk only -- other chunks continue independently
+
+**State file tracking for streaming execution:**
+
+Each chunk tracks its own pipeline position:
+```yaml
+active_phase:
+  name: "implement_review_stream"
+  status: in_progress
+  execution:
+    booking-domain-api:
+      pipeline_step: review    # implement | review | fix_loop | ready
+      implement_status: completed
+      review_status: in_progress
+      workers: { ... }
+    content-domain-api:
+      pipeline_step: implement  # still implementing while others are in review
+      implement_status: in_progress
+      review_status: pending
+      workers: { ... }
+```
 
 For goals spanning multiple repositories, the plan produces one chunk per repository. Each Dispatch worker operates in that repository's worktree. PRs are created per repo.
 
@@ -292,17 +364,15 @@ For goals spanning multiple repositories, the plan produces one chunk per reposi
 
 **Reviews MUST be dispatched via the Dispatch skill, not run in-session.** Do NOT invoke pr-review-toolkit skills or Agent tool reviewers directly in the orchestrator session. The whole point is a fresh context window free of implementation bias -- the reviewer sees only the code, not the decisions that led to it.
 
-After each chunk completes implementation, invoke `Skill("dispatch")` to spawn a `review` worker (Sonnet). The worker runs:
+**Dispatch the review worker for a chunk as soon as that chunk's implementation completes.** Do not wait for other chunks. This is the streaming model -- each chunk gets reviewed independently as it finishes.
 
-- pr-review-toolkit:code-reviewer -- code quality, correctness, maintainability
-- pr-review-toolkit:silent-failure-hunter -- suppressed errors, bad fallbacks
-- pr-review-toolkit:pr-test-analyzer -- test coverage gaps
-- security-guidance / OWASP patterns -- especially on API, auth, or data-handling code
+**Read the review suite from the state file.** The `review_suite` block was written at proposal time. Use its `model` for the dispatch alias, its `skills` list for the worker instructions, its `trigger` mode to determine streaming vs batch, and its `max_fix_retries` for the fix loop limit. Do NOT hardcode review skills in the dispatch prompt -- read them from state so user overrides from the tweak step are honoured.
 
-Also use any review skills discovered at runtime where relevant (type-design-analyzer for new types, comment-analyzer for new docs).
+Invoke `Skill("dispatch")` to spawn a review worker using `review_suite.model`. The worker runs each skill listed in `review_suite.skills`, plus any review skills discovered at runtime where relevant (type-design-analyzer for new types, comment-analyzer for new docs).
 
-### fix_loop (conditional, triggered by review)
-- **Trigger:** Review worker returns issues
+### fix_loop (conditional, triggered by review, per-chunk)
+- **Trigger:** Review worker returns issues for a specific chunk
+- **Scope:** Fix loop runs per-chunk. Other chunks continue their own pipeline independently.
 - **Behaviour:** Invoke `Skill("dispatch")` to spawn a `code` (Opus) fix worker with the review report as input. On completion, invoke `Skill("dispatch")` again to spawn a fresh `review` worker. Loop. Do NOT fix or re-review in-session.
 - **Max retries:** 3
 - **On exhaustion:** Pause pipeline. Send high-priority notification with the review report. Wait for user decision.
@@ -317,7 +387,15 @@ implement -> dispatch review worker -> issues found?
 
 ### finish (always)
 
-**PREREQUISITE: All chunks must have passed review before finish can run.** If any chunk has unresolved review issues, the pipeline must not proceed to finish. Check the state file for review statuses.
+**PREREQUISITE: All chunks must have passed review before finish can run.** This is enforced by the phase transition protocol -- `review` must appear in `completed_phases` with `status: completed` before finish can begin. But because this gate was skipped in practice (bearer-auth-rollout-2026-03-17), here is the explicit checklist:
+
+1. Read the state file (not from memory -- `cat` it)
+2. Confirm `review` is in `completed_phases` with `status: completed`
+3. Confirm every chunk under the review phase has `status: completed` (not `pending`, not `running`)
+4. If ANY chunk review is not complete, STOP. You are about to skip review. Dispatch the missing review workers first.
+5. Only after all 4 checks pass, write the gate check entry and proceed
+
+**If you find yourself about to push code or create PRs and review is not in completed_phases, you are repeating the bearer-auth-rollout bug. STOP IMMEDIATELY.**
 
 - **Tool:** superpowers:finishing-a-development-branch
 - **PR strategy:** Proposed in the announcement step. Default: one PR per chunk for multi-chunk work, single PR for small features. User adjusts at announcement.
@@ -329,6 +407,7 @@ if [ -n "$NOTIFY_SCRIPT" ]; then bash "$NOTIFY_SCRIPT" "Pipeline Complete" "All 
 ```
 
 - If receiving-code-review skill is available, note in the session that subsequent PR feedback should use it.
+- **Offer cleanup:** After PRs are created and notifications sent, ask the user: "Clean up .dispatch/ and .pipeline/ artifacts from this run?" If yes, remove the run's task directories from `.dispatch/tasks/`, the state file from `.pipeline/state/`, and the proposal from `.pipeline/proposals/`. If no, leave everything for debugging. Do not archive to a subdirectory -- either clean up fully or leave in place.
 
 ### final_review (conditional)
 - **Tool:** `Skill("dispatch")` to spawn a `review` worker (Opus for cross-chunk reasoning)
@@ -407,7 +486,9 @@ Read the plan document to identify chunks and dependency edges.
 
 **Fan-out:** For each chunk whose dependencies are satisfied, invoke `Skill("dispatch")` to spawn workers. Independent chunks dispatch in parallel.
 
-**Fan-in:** Before starting a chunk that depends on another, wait for all workers in the dependency chunk to reach `completed` status in the state file.
+**Streaming fan-through:** When independent chunks are dispatched in parallel, each chunk flows through implement -> review -> fix_loop independently as it completes. The orchestrator does not wait for all chunks to finish implementing before dispatching review workers. See "Step 5: After each chunk -- streaming per-chunk pipeline" for the full model.
+
+**Fan-in:** The finish phase is the single synchronisation point. Before entering finish, ALL chunks must have reached `ready` status (review passed). For dependent chunks (wave-based execution), wait for all workers in the dependency chunk to reach `completed` status in the state file before dispatching the next wave.
 
 Each dispatched worker receives:
 1. The task description from the plan
@@ -477,7 +558,7 @@ Write and maintain `.pipeline/state/<run-id>.yaml` in the project root on every 
 
 **run-id format:** kebab-case goal slug + date, e.g. `json-schema-decorators-2026-03-15`.
 
-On the first pipeline run in a project, append `.pipeline/` to `.gitignore` if it is not already there.
+`.pipeline/` and `.dispatch/` are excluded from git via the user's global `core.excludesFile`. Do NOT add them to per-repo `.gitignore` files.
 
 ### State file YAML template
 
@@ -488,6 +569,7 @@ status: proposed | in_progress | completed | failed | abandoned
 started: "<ISO 8601>"
 proposal_path: ".pipeline/proposals/<run-id>.md"
 current_phase: "<phase name or empty if proposed>"
+phase_index: <0-based index into proposed_phases -- incremented only by gate check>
 proposed_phases: [<list of phase names>]
 completed_phases:
   <phase_name>:
@@ -495,6 +577,20 @@ completed_phases:
     output: "<file path>"
     completed_at: "<ISO 8601>"
     error: "<error message if failed>"
+gate_check:
+  timestamp: "<ISO 8601>"
+  completed_phase: "<last completed phase>"
+  entering_phase: "<phase being entered>"
+  prerequisite_met: true | false
+review_suite:
+  model: "<dispatch alias, e.g. review (Sonnet)>"
+  skills:
+    - pr-review-toolkit:code-reviewer
+    - pr-review-toolkit:silent-failure-hunter
+    - pr-review-toolkit:pr-test-analyzer
+    - security-guidance
+  trigger: per_chunk | batch
+  max_fix_retries: 3
 active_phase:
   name: "<phase name>"
   status: in_progress | waiting_for_user | failed
@@ -508,7 +604,7 @@ active_phase:
         <task-id>: { status: running | completed | failed, pr: "<#num>" }
 ```
 
-Read the state file at the start of every pipeline action to ensure current state. Write it after every state change.
+Read the state file at the start of every pipeline action to ensure current state. Write it after every state change. The `phase_index` field is the authoritative pointer into `proposed_phases` -- it increments only when a gate check passes. If `phase_index` and `current_phase` disagree, the state file is corrupt; stop and investigate.
 
 **Resume:** When the user says "continue" or "resume pipeline", read the state file, identify the current or failed phase, and re-run from there. No need to repeat completed phases.
 
